@@ -68,13 +68,42 @@ namespace CityBuilder
             _research        = _Add<Systems.ResearchSystem>("ResearchSystem");
             _townUpgrade     = _Add<Systems.TownUpgradeSystem>("TownUpgradeSystem");
 
+            // --- NEU: UI Anbindung ---
+            var canvas = new CanvasLayer { Name = "UICanvas" };
+            AddChild(canvas);
+            
+            var buildMenu = new UI.BuildMenu { Name = "BuildMenu" };
+            canvas.AddChild(buildMenu);
+
+            // UI-Events an das PlacementSystem weiterleiten (Orchestration)
+            buildMenu.OnBuildBuildingRequested += (voxel, building) => 
+            {
+                if (_stateManager.CurrentState != ECS.GameState.BuildMode)
+                    _stateManager.ToggleBuildMode();
+                _placementSystem.BeginPlacement(voxel, building);
+            };
+            
+            buildMenu.OnBuildRoadRequested += () => 
+            {
+                if (_stateManager.CurrentState != ECS.GameState.BuildMode)
+                    _stateManager.ToggleBuildMode();
+                _placementSystem.BeginRoadPlacement();
+            };
+
+            buildMenu.OnCancelRequested += () => 
+            {
+                _placementSystem.CancelPlacement();
+                if (_stateManager.CurrentState == ECS.GameState.BuildMode)
+                    _stateManager.ToggleBuildMode(); // Zurück in den Simulating-State
+            };
+
             // Wire up cross-system events
             _townUpgrade.OnTownUpgraded += tier =>
                 GD.Print($"[Main] Town reached tier {tier} 🎉");
             _research.OnUnlockReady += tier =>
                 GD.Print($"[Main] Research unlock available at tier {tier}");
 
-            GD.Print("[Main] All systems initialized.");
+            GD.Print("[Main] All systems initialized and UI connected.");
         }
 
         private T _Add<T>(string name) where T : Node, new()
